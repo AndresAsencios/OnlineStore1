@@ -84,6 +84,7 @@ public class OnlineStore {
     }
 
     public static void displayCart(ArrayList<Product> cart, Scanner scanner) {
+        while(true) {
 
         System.out.println();
         System.out.println("=== Your Cart ===");
@@ -109,8 +110,12 @@ public class OnlineStore {
 
         switch (cartChoice) {
             case "1":
-                System.out.println("Checking out...");
-                break;
+                System.out.println("=== Checkout ===");
+                System.out.printf("Your total is: $%.2f%n", total);
+                System.out.println("Thank you for your purchase!");
+
+                cart.clear();
+                return;
 
             case "2":
                 System.out.print("Enter the SKU of the product to remove: ");
@@ -138,5 +143,6 @@ public class OnlineStore {
         }
         // TODO: show every product in the cart and the total amount
         // TODO: let the customer check out, remove a product, or go back
+        }
     }
 }
