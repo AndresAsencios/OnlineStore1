@@ -1,15 +1,21 @@
 package com.pluralsight;
+import java.util.HashMap;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.File;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class OnlineStore {
     public static void main(String[] args) {
         ArrayList<Product> inventory = loadInventory("src/main/resources/products.csv");
-        ArrayList<Product> cart = new ArrayList<>();
+        HashMap<String, Integer> quantities = new HashMap<>();
         Scanner scanner = new Scanner(System.in);
 
         String choice = "";
@@ -24,10 +30,11 @@ public class OnlineStore {
 
             switch (choice) {
                 case "1":
-                    displayProducts(inventory, cart, scanner);
+                    displayProducts(inventory, quantities, scanner);
                     break;
+
                 case "2":
-                    displayCart(cart, scanner);
+                    displayCart(inventory, quantities, scanner);
                     break;
                 case "3":
                     System.out.println("Thank you for shopping with us!");
@@ -51,31 +58,37 @@ public class OnlineStore {
                 String department = parts[3];
                 inventory.add(new Product(sku, name, price, department));
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             System.out.println("Could not load " + fileName + ": " + e.getMessage());
         }
         return inventory;
     }
 
-    public static void displayProducts(ArrayList<Product> inventory, ArrayList<Product> cart, Scanner scanner) {
+    public static void displayProducts(ArrayList<Product> inventory, HashMap<String, Integer> quantities, Scanner scanner) {
         System.out.println();
         System.out.println("=== Products ===");
         for (Product product : inventory) {
             System.out.println(product);
         }
-        System.out.println("Enter a product SKU (X to go back): ");
+        System.out.print("Enter a product SKU (X to go back): ");
         String sku = scanner.nextLine().trim();
-
+        if (sku.equalsIgnoreCase("X")) {
+            return;
+        }
         for (Product product : inventory) {
             if (product.getSku().equalsIgnoreCase(sku)) {
-                cart.add(product);
+
+                String productSku = product.getSku();
+
+                quantities.put(
+                        productSku,
+                        quantities.getOrDefault(productSku, 0) + 1
+                );
+
                 System.out.println(product.getName() + " added to cart!");
                 return;
             }
-            if (sku.equalsIgnoreCase("X")) {
-                return;
-            }
+
         }
         System.out.println("Product not found.");
         // TODO: let the customer search or filter the list
@@ -83,66 +96,127 @@ public class OnlineStore {
         // TODO: let the customer go back to the home screen
     }
 
-    public static void displayCart(ArrayList<Product> cart, Scanner scanner) {
-        while(true) {
+    public static void displayCart(ArrayList<Product> inventory, HashMap<String, Integer> quantities, Scanner scanner) {
+        while (true) {
 
-        System.out.println();
-        System.out.println("=== Your Cart ===");
-        if (cart.isEmpty()) {
-            System.out.println("Your cart is empty!");
-            return;
-        }
+            System.out.println();
+            System.out.println("=== Your Cart ===");
+            if (quantities.isEmpty()) {
 
-        double total = 0;
-
-        for (Product product : cart) {
-            System.out.println(product);
-            total += product.getPrice();
-        }
-        System.out.printf("Total: $%.2f%n", total);
-        System.out.println();
-        System.out.println("1) Check Out");
-        System.out.println("2) Remove Product");
-        System.out.println("3) Return to Main Menu");
-        System.out.print("Choose an option: ");
-
-        String cartChoice = scanner.nextLine().trim();
-
-        switch (cartChoice) {
-            case "1":
-                System.out.println("=== Checkout ===");
-                System.out.printf("Your total is: $%.2f%n", total);
-                System.out.println("Thank you for your purchase!");
-
-                cart.clear();
+                System.out.println("Your cart is empty!");
                 return;
+            }
 
-            case "2":
-                System.out.print("Enter the SKU of the product to remove: ");
-                String removeSku = scanner.nextLine().trim();
-                Product productToRemove = null;
-                for (Product product : cart) {
-                    if (product.getSku().equalsIgnoreCase(removeSku)) {
-                        productToRemove = product;
+            double total = 0;
+
+            for (String sku : quantities.keySet()) {
+                for (Product product : inventory) {
+                    if (product.getSku().equalsIgnoreCase(sku)) {
+                        int quantity = quantities.get(sku);
+                        double subtotal = product.getPrice() * quantity;
+
+                        System.out.printf("%s | Qty: %d | Subtotal: $%.2f%n",
+                                product.getName(), quantity, subtotal);
+
+                        total += subtotal;
                         break;
                     }
                 }
-                if (productToRemove != null) {
-                    cart.remove(productToRemove);
-                    System.out.println(productToRemove.getName() + " removed from cart!");
-                } else {
-                    System.out.println("Product not found in cart.");
-                }
-                break;
+            }
+            System.out.printf("Total: $%.2f%n", total);
+            System.out.println();
+            System.out.println("1) Check Out");
+            System.out.println("2) Remove Product");
+            System.out.println("3) Return to Main Menu");
+            System.out.print("Choose an option: ");
 
-            case "3":
-                return;
+            String cartChoice = scanner.nextLine().trim();
 
-            default:
-                System.out.println("Invalid option.");
-        }
-        // TODO: show every product in the cart and the total amount
-        // TODO: let the customer check out, remove a product, or go back
+            switch (cartChoice) {
+                case "1":
+                    System.out.println("=== Checkout ===");
+                    System.out.printf("Your total is: $%.2f%n", total);
+                    System.out.println("Thank you for your purchase!");
+                    StringBuilder receipt = new StringBuilder();
+
+                    receipt.append("=== ONLINE STORE RECEIPT ===\n");
+                    for (String sku : quantities.keySet()) {
+                        for (Product product : inventory) {
+                            if (product.getSku().equalsIgnoreCase(sku)) {
+
+                                int quantity = quantities.get(sku);
+                                double subtotal = product.getPrice() * quantity;
+
+                                receipt.append(String.format(
+                                        "%s | Qty: %d | Subtotal: $%.2f%n",
+                                        product.getName(), quantity, subtotal
+                                ));
+
+                                break;
+                            }
+                        }
+                    }
+                    receipt.append(String.format("Total: $%.2f%n", total));
+                    receipt.append("Thank you for your purchase!\n");
+
+                    quantities.clear();
+                    return;
+
+                case "2":
+                    System.out.print("Enter the SKU of the product to remove: ");
+                    String removeSku = scanner.nextLine().trim();
+                    String matchingSku = null;
+
+                    for (String sku : quantities.keySet()) {
+                        if (sku.equalsIgnoreCase(removeSku)) {
+                            matchingSku = sku;
+                            break;
+                        }
+                    }
+
+                    if (matchingSku != null) {
+                        int quantity = quantities.get(matchingSku);
+
+                        if (quantity > 1) {
+                            quantities.put(matchingSku, quantity - 1);
+                        } else {
+                            quantities.remove(matchingSku);
+                        }
+
+                        System.out.println("One item removed from cart!");
+                    } else {
+                        System.out.println("Product not found in cart.");
+                    }
+                    break;
+
+                case "3":
+                    return;
+
+                default:
+                    System.out.println("Invalid option.");
+            }
         }
     }
+    public static String writeReceipt(String receiptText) {
+        LocalDateTime now = LocalDateTime.now();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+        String fileName = now.format(formatter) + ".txt";
+        File folder = new File("Receipts");
+        folder.mkdirs();
+
+        try(BufferedWriter writer = new BufferedWriter(new FileWriter("Receipts/" + fileName))) {
+            writer.write(receiptText);
+        } catch (IOException e) {
+            System.out.println("Could not save receipts" + e.getMessage());
+            return null;
+        }
+        return fileName;
+    }
+
 }
+
+
+
+
